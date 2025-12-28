@@ -24,6 +24,12 @@
 /* USER CODE BEGIN Includes */
 #include "ILI9341_STM32_Driver.h"
 #include "ILI9341_GFX.h"
+#include"bola.h"
+#include "pala.h"
+#include "juego.h"
+#include "display.h"
+#include "puntuacion.h"
+
 
 /* USER CODE END Includes */
 
@@ -50,7 +56,10 @@ I2C_HandleTypeDef hi2c1;
 SPI_HandleTypeDef hspi1;
 DMA_HandleTypeDef hdma_spi1_tx;
 
+TIM_HandleTypeDef htim3;
+
 /* USER CODE BEGIN PV */
+volatile uint8_t boton_pulsado_flag = 0;
 
 /* USER CODE END PV */
 
@@ -61,6 +70,7 @@ static void MX_DMA_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_TIM3_Init(void);
 void MX_USB_HOST_Process(void);
 
 /* USER CODE BEGIN PFP */
@@ -107,17 +117,21 @@ int main(void)
   MX_SPI1_Init();
   MX_USB_HOST_Init();
   MX_ADC1_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
+
   ILI9341_Init();
 
+  /*
   // Simple Text writing (Text, Font, X, Y, Color, BackColor)
   // Available Fonts are FONT1, FONT2, FONT3 and FONT4
-  ILI9341_FillScreen(BLUE);
+  ILI9341_FillScreen(WHITE);
   ILI9341_SetRotation(SCREEN_HORIZONTAL_2);
-  ILI9341_DrawText("PONG", FONT4, 140, 110, BLACK, BLUE);
+  ILI9341_DrawText("PONG", FONT4, 140, 110, BLACK, WHITE);
   HAL_Delay(1000);
-  ILI9341_FillScreen(RED);
-  /*
+  ILI9341_FillScreen(WHITE);
+
   // Filled Rectangle (Start X, Start Y, Length X, Length Y)
     ILI9341_FillScreen(RED);
     ILI9341_DrawRectangle(5, 100, 5, 40, BLACK);
@@ -177,14 +191,22 @@ int main(void)
   ILI9341_FillScreen(WHITE);
   ILI9341_DrawPixel(100, 100, BLACK);
   HAL_Delay(1000);
-  */
-  uint16_t x = 5;
-  uint16_t y = 100;
-  uint16_t w = 5;
-  uint16_t h = 40;
-  //int8_t dir = 1;
-  uint32_t readValue = 0;
 
+  uint16_t x = 5,   y = 100, w = 5, h = 40, readValue=0;
+  uint16_t x2 = 310, y2 = 100, w2 = 5, h2 = 40,readValue2=0;
+
+
+  int ballX = 160, ballY = 5; // Posición inicial (centro)
+  int ballDX = 4, ballDY = 4;   // Velocidad (cuántos píxeles se mueve cada vez)
+  int radius = 3;               // Tamaño de la bola
+  int ballX_ant, ballY_ant;     // Para borrar la posición anterior
+  float nrebotes=1;
+	*/
+  Game_Inicial();
+  Display_Inicial();
+  Score_Init();
+
+  HAL_TIM_Base_Start_IT(&htim3);
 
   /* USER CODE END 2 */
 
@@ -192,37 +214,31 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
-    MX_USB_HOST_Process();
+
+	  /* USER CODE END WHILE */
+	      MX_USB_HOST_Process();
+
+	      // 1. Leer ADCs
+	      HAL_ADC_Start(&hadc1);
+	      HAL_ADC_PollForConversion(&hadc1, 10);
+	      uint16_t val1 = HAL_ADC_GetValue(&hadc1);
+	      HAL_ADC_PollForConversion(&hadc1, 10);
+	      uint16_t val2 = HAL_ADC_GetValue(&hadc1);
+
+	      // 2. Actualizar Lógica del Juego
+	      // (Aquí dentro está el marcador y la pausa del gol)
+	      Game_Update(val1, val2);
+
+	      // 3. Actualizar Pantalla TFT
+	      Display_Update(Game_GetStruct());
+
+	      // 4. Refrescar el 7 Segmentos (CRUCIAL)
+	      // Esto mantiene los números encendidos
+	      Score_Refresh();
 
     /* USER CODE BEGIN 3 */
-	  MX_USB_HOST_Process();
-
-	  HAL_ADC_Start(&hadc1);
-	      if (HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
-	      {
-	          readValue = HAL_ADC_GetValue(&hadc1);
-	      }
-	      HAL_ADC_Stop(&hadc1);
-	     //Dibujar rectangulo
-	     ILI9341_DrawRectangle(x, y, w, h, RED);
-
-	         //y += dir*2;
-	     y =((readValue * (240 - h)) / 4095);
-	     /*
-	         if (y > 200)
-	             dir=-1;
-	         if (y < 2)
-	            dir=1;
-	            */
-
-
-	         ILI9341_DrawRectangle(x, y, w, h, BLACK);
-
-	         HAL_Delay(20);
-
-
   }
+  HAL_Delay(15);
   /* USER CODE END 3 */
 }
 
@@ -294,13 +310,13 @@ static void MX_ADC1_Init(void)
   hadc1.Instance = ADC1;
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = DISABLE;
+  hadc1.Init.ScanConvMode = ENABLE;
   hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.NbrOfConversion = 2;
   hadc1.Init.DMAContinuousRequests = DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
@@ -312,7 +328,16 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_1;
   sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  sConfig.SamplingTime = ADC_SAMPLETIME_480CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_2;
+  sConfig.Rank = 2;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -396,6 +421,51 @@ static void MX_SPI1_Init(void)
 }
 
 /**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 7199;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 49;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -432,13 +502,19 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(CS_I2C_SPI_GPIO_Port, CS_I2C_SPI_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9
+                          |GPIO_PIN_10|GPIO_PIN_11|GPIO_PIN_12|GPIO_PIN_13
+                          |GPIO_PIN_0, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(OTG_FS_PowerSwitchOn_GPIO_Port, OTG_FS_PowerSwitchOn_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_10, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_10|GPIO_PIN_5
+                          |GPIO_PIN_8, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, LD4_Pin|LD3_Pin|LD5_Pin|LD6_Pin
@@ -450,12 +526,16 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(DATA_Ready_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : CS_I2C_SPI_Pin */
-  GPIO_InitStruct.Pin = CS_I2C_SPI_Pin;
+  /*Configure GPIO pins : PE3 PE6 PE7 PE8
+                           PE9 PE10 PE11 PE12
+                           PE13 PE0 */
+  GPIO_InitStruct.Pin = GPIO_PIN_3|GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_8
+                          |GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_11|GPIO_PIN_12
+                          |GPIO_PIN_13|GPIO_PIN_0;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(CS_I2C_SPI_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   /*Configure GPIO pins : INT1_Pin INT2_Pin MEMS_INT2_Pin */
   GPIO_InitStruct.Pin = INT1_Pin|INT2_Pin|MEMS_INT2_Pin;
@@ -492,8 +572,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Alternate = GPIO_AF6_SPI3;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PB0 PB1 PB10 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_10;
+  /*Configure GPIO pins : PB0 PB1 PB10 PB5
+                           PB8 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_10|GPIO_PIN_5
+                          |GPIO_PIN_8;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -530,6 +612,16 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(OTG_FS_OverCurrent_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : PB9 */
+  GPIO_InitStruct.Pin = GPIO_PIN_9;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
   /* USER CODE END MX_GPIO_Init_2 */
@@ -537,6 +629,29 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+// Esta función se ejecuta automáticamente 200 veces por segundo
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    // Verificamos que sea el TIM3 quien nos llama
+    if (htim->Instance == TIM3) {
+        Score_Refresh(); // Cambiamos de dígito
+    }
+}
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    // Verificamos si es el pin del botón (PB9 según tu código anterior)
+    if (GPIO_Pin == GPIO_PIN_9) {
+
+        // Antirebote por software
+        static uint32_t last_time = 0;
+        uint32_t current_time = HAL_GetTick();
+
+        if (current_time - last_time > 200) {
+            boton_pulsado_flag = 1; // ¡Avisamos al juego!
+            last_time = current_time;
+        }
+    }
+}
 /* USER CODE END 4 */
 
 /**
