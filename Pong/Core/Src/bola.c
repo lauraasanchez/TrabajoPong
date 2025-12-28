@@ -4,8 +4,8 @@ void Ball_Inicial(Ball *b){
 	//Valores iniciales
 	b->x=160;
 	b->y=5;
-	b->dx=4;
-	b->dy=4;
+	b->dx=2;
+	b->dy=2;
 	b->radio=3;
 }
 
@@ -32,9 +32,10 @@ void Ball_Reset(Ball *b){
 	//Reset valores
 	b->x=160;
 	b->y=5;
-	b->dx=4;
-	b->dy=4;
+	b->dx=2;
+	b->dy=2;
 
 }
+
 
 
