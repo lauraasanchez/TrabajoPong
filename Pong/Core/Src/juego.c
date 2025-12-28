@@ -15,6 +15,10 @@ void Game_Inicial(void) {
     juego.puntos1 = 0;
     juego.puntos2 = 0;
 
+    // INICIALIZAMOS EL TIMER
+        juego.timer_activo = 0;   // Apagado al principio
+        juego.tiempo_restante = 60; // 1 minuto
+
     // Inicializamos el marcador a 0-0
     // (Score_Init ya se llamó en main.c, pero no hace daño reiniciarlo aquí)
     Score_SetValues(0, 0);
@@ -33,6 +37,12 @@ void Game_Update(uint16_t adc1, uint16_t adc2) {
     // El Timer leerá estos valores automáticamente 200 veces por segundo.
     Score_SetValues(juego.puntos1, juego.puntos2);
 
+        // ============================================================
+        // === LÓGICA DEL TEMPORIZADOR "REY DE LA PISTA" ===
+        // ============================================================
+
+
+
     // --- MÁQUINA DE ESTADOS ---
     switch (juego.estadoActual) {
 
@@ -44,6 +54,42 @@ void Game_Update(uint16_t adc1, uint16_t adc2) {
             break;
 
         case JUEGO:
+
+        	// 1. ¿Hay empate? -> APAGAR Y REINICIAR TIMER
+        	        if (juego.puntos1 == juego.puntos2) {
+        	            juego.timer_activo = 0;
+        	            juego.tiempo_restante = 60; // Recargamos para la próxima
+        	        }
+        	        // 2. ¿Alguien va ganando? -> ENCENDER TIMER
+        	        else {
+        	            // Si estaba apagado, lo encendemos ahora mismo
+        	            if (juego.timer_activo == 0) {
+        	                juego.timer_activo = 1;
+        	                juego.ultimo_tick = HAL_GetTick(); // Marcamos el tiempo actual
+        	            }
+
+        	            // Si ya está activo, comprobamos si ha pasado 1 segundo (1000 ms)
+        	            if (HAL_GetTick() - juego.ultimo_tick >= 1000) {
+        	                juego.tiempo_restante--;      // Restamos 1 segundo
+        	                juego.ultimo_tick = HAL_GetTick(); // Reiniciamos cuenta del segundo
+
+        	                // 3. ¿SE ACABÓ EL TIEMPO? -> ¡VICTORIA!
+        	                if (juego.tiempo_restante <= 0) {
+
+        	                	juego.timer_activo = 0;
+
+        	                    if (juego.puntos1 > juego.puntos2) {
+
+        	                        juego.estadoActual = GANAAZUL;
+
+        	                    } else {
+
+        	                        juego.estadoActual = GANAROJO;
+        	                    }
+        	                    return;
+        	                }
+        	            }
+        	        }
             if (boton_pulsado_flag == 1) {
                 juego.estadoActual = PAUSA;
                 boton_pulsado_flag = 0;
@@ -106,9 +152,11 @@ void Game_Update(uint16_t adc1, uint16_t adc2) {
 
                 // 5. CONDICIÓN DE VICTORIA
                 if (juego.puntos1 >= 5) {
+                	juego.timer_activo = 0;
                     juego.estadoActual = GANAAZUL;
                 }
                 if (juego.puntos2 >= 5) {
+                	juego.timer_activo = 0;
                     juego.estadoActual = GANAROJO;
                 }
             }
