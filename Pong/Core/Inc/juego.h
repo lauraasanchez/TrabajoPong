@@ -9,7 +9,6 @@ typedef enum {
     INICIO,      // Pantalla de título "PONG"
     JUEGO,   // La bola se mueve
 	PAUSA,
-    JUEGOTEMP, //Temporizador
 	GANAROJO, //Ganador rojo
 	GANAAZUL //Ganador azul
 } EstadosJuego;
@@ -29,3 +28,4 @@ void Game_Update(uint16_t adc1, uint16_t adc2); // El main le pasa los sensores
 Juego_t* Game_GetStruct(void); // Para que el archivo de dibujo pueda ver los datos
 
 #endif /* INC_JUEGO_H_ */
+
