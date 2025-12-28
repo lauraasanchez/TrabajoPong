@@ -1,6 +1,9 @@
 #include "display.h"
 #include "ILI9341_STM32_Driver.h" // Tus drivers de pantalla
 #include "ILI9341_GFX.h"
+#include <stdio.h>
+#include "fonts.h"    // <--- Necesario para usar Font_11x18
+
 
 // Variables para borrar la posición anterior (evitar parpadeo)
 static Ball bola_ant;
@@ -89,6 +92,29 @@ void Display_Update(Juego_t *juego) {
 	        pala1_ant = juego->pala1;
 	        pala2_ant = juego->pala2;
 	    }
+	    // =========================================
+	    // === DIBUJAR EL TEMPORIZADOR ===
+	    // =========================================
+	    if (juego->estadoActual == JUEGO) {
 
+	    char texto[5];
 
+	    if (juego->timer_activo == 1) {
+	        sprintf(texto, "%02d", juego->tiempo_restante);
+
+	        // Verde si sobra tiempo, Rojo si queda poco
+	        uint16_t color = (juego->tiempo_restante > 10) ? 0x07E0 : 0xF800;
+
+	        // CAMBIO 1: Función correcta según tu foto
+	        // Orden: Texto, Fuente, X, Y, ColorTexto, ColorFondo
+	        ILI9341_DrawText(texto, FONT4, 140, 10, color, 0xFFFF);
+	    }
+	    else {
+	        // CAMBIO 2: Borrar con rectángulo
+	        // Tu librería usa Coordenadas (Inicio -> Fin), no ancho/alto.
+	        // X0=140, Y0=10
+	        // X1=180 (140+40), Y1=35 (10+25)
+	        ILI9341_DrawFilledRectangleCoord(140, 10, 180, 35, 0xFFFF);
+	    }
+	 }
 }
