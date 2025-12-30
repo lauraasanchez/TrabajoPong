@@ -60,7 +60,7 @@ TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
 volatile uint8_t boton_pulsado_flag = 0;
-
+volatile uint8_t boton_pulsado_flag2 = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -651,6 +651,18 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
             last_time = current_time;
         }
     }
+	 // Verificamos si es el pin del botón (PC13)
+        if (GPIO_Pin == GPIO_PIN_13) {
+
+            // Antirebote por software
+            static uint32_t last_time = 0;
+            uint32_t current_time2 = HAL_GetTick();
+
+            if (current_time2 - last_time > 200) {
+                boton_pulsado_flag2 = 1;
+                last_time = current_time2;
+            }
+        }
 }
 /* USER CODE END 4 */
 
@@ -684,3 +696,4 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
+
