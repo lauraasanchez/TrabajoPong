@@ -31,6 +31,7 @@ void Game_Inicial(void) {
 
 void Game_Update(uint16_t adc1, uint16_t adc2) {
     extern volatile uint8_t boton_pulsado_flag;
+    extern volatile uint8_t boton_pulsado_flag2;
 
     // --- ACTUALIZACIÓN DE DATOS PARA EL TIMER ---
     // Le pasamos los puntos actuales al módulo Score.
@@ -47,12 +48,33 @@ void Game_Update(uint16_t adc1, uint16_t adc2) {
     switch (juego.estadoActual) {
 
         case INICIO:
-            if (boton_pulsado_flag == 1) {
-                juego.estadoActual = JUEGO;
-                boton_pulsado_flag = 0;
-            }
-            break;
+        	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
+        	if (boton_pulsado_flag == 1|| boton_pulsado_flag2 == 1)
+        	            {
 
+        	        	    juego.estadoActual = DIFICULTAD;
+        	                boton_pulsado_flag = 0;
+        	                boton_pulsado_flag2 = 0;
+        	            }
+
+            break;
+        case DIFICULTAD:
+        	if (boton_pulsado_flag == 1)
+        	    {
+
+        	     boton_pulsado_flag = 0;
+        	     juego.pala1.alto = 20;
+        	     juego.pala2.alto = 20;
+        	     juego.estadoActual = JUEGO;
+        	    }
+        	if (boton_pulsado_flag2 == 1){
+        		boton_pulsado_flag2 = 0;
+        		juego.pala1.alto = 40;
+        		juego.pala2.alto = 40;
+        		juego.estadoActual = JUEGO;
+        	}
+        	break;
+        
         case JUEGO:
 
         	// 1. ¿Hay empate? -> APAGAR Y REINICIAR TIMER
@@ -163,28 +185,79 @@ void Game_Update(uint16_t adc1, uint16_t adc2) {
             break;
 
         case PAUSA:
-            if (boton_pulsado_flag == 1) {
-                juego.estadoActual = JUEGO;
-                boton_pulsado_flag = 0;
-            }
-            break;
+
+
+                    // Solo escuchamos el botón para salir
+                    if (boton_pulsado_flag2 == 1) {
+                        juego.estadoActual = JUEGO; // Volvemos a la acción
+                        boton_pulsado_flag2 = 0;     // Bajamos la bandera
+                    }
+                    if (boton_pulsado_flag == 1){
+                            		boton_pulsado_flag = 0;
+                            		juego.puntos1 = 0;
+                            		juego.puntos2 = 0;
+                            		Ball_Reset(&juego.bola);
+                            		juego.estadoActual = DIFICULTAD;
+                          }
+                    break;
+
 
         case GANAROJO:
-            if (boton_pulsado_flag == 1) {
-                boton_pulsado_flag = 0;
-                juego.puntos1 = 0;
-                juego.puntos2 = 0;
-                juego.estadoActual = JUEGO;
-            }
+        	for(int i = 0; i < 8; i++)
+        	{
+        	 // 1. ENCENDER (Buzzer suena, LED enciende)
+        	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET); // Buzzer ON (si es lógica inversa)
+        	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_SET);  // LED ON
+        	HAL_Delay(100);
+
+        	// 2. APAGAR (Buzzer calla, LED apaga)
+        	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);   // Buzzer OFF
+        	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_RESET);// LED OFF
+        	HAL_Delay(100);
+        	}
+
+
+        	juego.estadoActual = MENUREINICIO;
+
+
             break;
 
         case GANAAZUL:
-            if (boton_pulsado_flag == 1) {
-                boton_pulsado_flag = 0;
-                juego.puntos1 = 0;
-                juego.puntos2 = 0;
-                juego.estadoActual = JUEGO;
-            }
-            break;
+    	    for(int i = 0; i < 8; i++)
+    	    {
+    	        // 1. ENCENDER (LED ON / Buzzer suena)
+    	    	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET);
+    	        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_SET);
+    	        HAL_Delay(100);
+
+    	        // 2. APAGAR (LED OFF / Buzzer calla)
+    	        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);
+    	        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
+    	        HAL_Delay(100);
+    	    }
+        	        	juego.estadoActual = MENUREINICIO;
+        	        	 break;
+
+        case MENUREINICIO:
+
+        	        	 if (boton_pulsado_flag == 1) {
+        	        	    boton_pulsado_flag = 0;
+        	        	    Ball_Reset(&juego.bola);// Bajamos la bandera
+        	        	            	        	juego.puntos1 = 0;
+        	        	            	        	 juego.puntos2 = 0;
+
+        	        	     juego.estadoActual = INICIO;
+        	        	  }
+        	        	 if (boton_pulsado_flag2 == 1) {
+        	        	         	    boton_pulsado_flag2 = 0;
+        	        	         	   Ball_Reset(&juego.bola);// Bajamos la bandera
+        	        	         	           	        	juego.puntos1 = 0;
+        	        	         	           	        	 juego.puntos2 = 0;// Bajamos la bandera
+
+        	        	         	     juego.estadoActual = JUEGO;
+        	        	         	  }
+
+        	break;
     }
 }
+
